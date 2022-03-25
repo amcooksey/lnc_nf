@@ -7,7 +7,7 @@ params.annot = "$projectDir/ref/Gallus_gallus.GRCg6a.104.chr.gtf"
 params.genome = "$projectDir/ref/Gallus_gallus.GRCg6a.dna.toplevel.fa"
 
 genome_file     =  file(params.genome)
-annot_file 	= file(params.annot) 
+annot_file 	=  file(params.annot) 
 reads_ch        =  Channel.fromFilePairs(params.reads) 
 
 /*
@@ -17,10 +17,10 @@ reads_ch        =  Channel.fromFilePairs(params.reads)
 process 'STARIndex' {
 //  errorStrategy 'ignore'
   input:
-      file(genome) from genome_file 
+      path(genome) from genome_file 
 
   output:
-      file(genome_dir) into genome_dir_ch 
+      path(genome_dir) into genome_dir_ch 
 
   script:
   """
@@ -35,13 +35,13 @@ process 'STARIndex' {
 
 process 'STAR' {
   input:
-      file genome from genome_file 
-      file genome_dir from genome_dir_ch 
-      file annot from annot_file
-      set replicateId, file(reads) from reads_ch 
+      path genome from genome_file 
+      path genome_dir from genome_dir_ch 
+      path annot from annot_file
+      tuple val(replicateId), path(reads) from reads_ch 
 
   output:
-      set replicateId, file('Aligned.sortedByCoord.out.bam') into aligned_bam_ch 
+      tuple (replicateId), path('Aligned.sortedByCoord.out.bam') into aligned_bam_ch 
 
   script:
   """
