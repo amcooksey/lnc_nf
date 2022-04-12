@@ -2,7 +2,7 @@
  *  Parse the input parameters
  */
 
-params.reads = '/xdisk/shaneburgess/amcooksey/lnc_nf_proj/project/*_{1,2}.fq'
+params.reads = '/xdisk/shaneburgess/amcooksey/lnc_nf_proj/project/*0.1_{1,2}.fq'
 params.annot = "$projectDir/ref/Gallus_gallus.GRCg6a.104.chr.gtf"
 params.genome = "$projectDir/ref/Gallus_gallus.GRCg6a.dna.toplevel.fa"
 
@@ -62,7 +62,7 @@ process 'TrinityGG' {
       tuple val(replicateId), path('Aligned.sortedByCoord.out.bam') from aligned_bam_ch
   
   output:
-      path(trinity_dir) into trinity_dir_ch
+      path(trinity) into trinity_ch
 
   script:
   """
@@ -74,125 +74,125 @@ process 'TrinityGG' {
         --output trinity
   """
 }
+process 'GMAPIndex' {
+  input:
+      path(genome) from genome_file
 
-/process 'GMAPIndex' {
-/  input:
-/      path(genome) from genome_file
+  output:
+      path(gmap_dir) into gmap_idx_ch
 
-/  output:
-/      path(gmap_dir) into gmap_idx_ch
-
-/  script:
-/  """
-/  mkdir gmap_dir
-
-/       gmap_build \
-/	-d gmap_index \
-/	-D gmap_dir \
-/	${genome}
-/  """
-/}
-
-/process 'GMAP' {
-/  input:
-/      tuple val(replicateId), path('Trinity-GG.fasta') from trinity_dir_ch, path(gmap_dir) from gmap_idx_ch
-
-/  output:
-/      tuple val(replicateId), path(gmap_out) into gmap_ch
-
-/  script:
-/  """
-/   gmap \
-/	-d gmap_index \
-/        -D gmap_dir \
-/        -f 2 \
-/	-t 26 \
-/        Trinity-GG.fasta
-/  """
-/}
-
-/process 'mapped transcripts GFF to GTF' {
-
-/  input:
-/      tuple val(replicateId), path(gmap_out) from gmap_ch
-
-/  output:
-/      tuple val(replicateId), path('gmap.gtf') into gtf_ch
-
-/  script:
-/  """
-/   gffread \
-/      -F \
-/      -T \
-/      $gmap_out\
-/      -o gmap.gtf
-/  """
-/}
-
-/process 'FEELncfilter' {
-
-/  input:
-/      tuple val(replicateId), path('gmap.gtf') from gtf_ch, path(annot) from annot_file
-
-/  output:
-/      tuple val(replicateId), path(log) into feelnclog_ch, path('candidate_lncRNA.gtf') into candidate_ch
-
-/  script:
-/  """
-/        FEELnc_filter.pl \
-/	-i gmap.gtf \
-/	-a $annot \
-/	-o $log \
-/	> candidate_lncRNA.gtf
-/  """
-/}
-
-/process 'FEELnccodpot' {
-
-/  input:
-/      tuple val(replicateId), path('candidate_lncRNA.gtf') from candidate_ch, path(genome) from genome_file, path(annot) from annot_file
-
-/  output:
-/      tuple val(replicateId), path(log) into feelnclog_ch, path('candidate_lncRNA.gtf.lncRNA.gtf') into candidate_ch
-
-/  script:
-/  """
-/        FEELnc_codpot.pl \
-/        -i 'candidate_lncRNA.gtf' \
-/        -a $annot \
-/        -b transcript_biotype=protein_coding \
-/        -g $genome \
-/	--mode=shuffle
-/  """
-/}
-
-process 'make coding annot' {
-
-   input:
-       path(annot) from annot_file
-
-   output:
-       path(codingannot) into coding_annot_ch
-
-   script:
-   """
-       grep "protein_coding" $annot
-   """
+  script:
+  """
+  mkdir gmap_dir \
+        gmap_build \
+	-d gmap_index \
+	-D gmap_dir \
+	${genome}
+  """
 }
 
-/process 'FEELncclassifer' {
+/*
+*process 'GMAP' {
+*  input:
+*      tuple val(replicateId), path('Trinity-GG.fasta') from trinity_ch, path(gmap_dir) from gmap_idx_ch
 
-/  input:
-/      tuple val(replicateId), path('candidate_lncRNA.gtf.lncRNA.gtf') from candidate_ch, path(codingannot) from coding_annot_ch
+*  output:
+*      tuple val(replicateId), path(gmap_out) into gmap_ch
 
-/  output:
-/      tuple val(replicateId), path(class) into feelncclass_ch
+*  script:
+*  """
+*   gmap \
+*	-d gmap_index \
+*        -D gmap_dir \
+*        -f 2 \
+*	-t 26 \
+*        Trinity-GG.fasta
+*  """
+*}
 
-/  script:
-/  """
-FEELnc_classifier.pl \
-        -i candidate_lncRNA.gtf.lncRNA.gtf \
-        -a path(codingannot) from coding_annot_ch \
-        -b
-/  """
-/}
+*process 'mapped transcripts GFF to GTF' {
+
+*  input:
+*      tuple val(replicateId), path(gmap_out) from gmap_ch
+
+*  output:
+*      tuple val(replicateId), path('gmap.gtf') into gtf_ch
+
+*  script:
+*  """
+*   gffread \
+*      -F \
+*      -T \
+*      $gmap_out\
+*      -o gmap.gtf
+*  """
+*}
+
+*process 'FEELncfilter' {
+
+*  input:
+*      tuple val(replicateId), path('gmap.gtf') from gtf_ch, path(annot) from annot_file
+
+*  output:
+*      tuple val(replicateId), path(log) into feelnclog_ch, path('candidate_lncRNA.gtf') into candidate_ch
+
+*  script:
+*  """
+*        FEELnc_filter.pl \
+*	-i gmap.gtf \
+*	-a $annot \
+*	-o $log \
+*	> candidate_lncRNA.gtf
+*  """
+*}
+
+*process 'FEELnccodpot' {
+
+*  input:
+*      tuple val(replicateId), path('candidate_lncRNA.gtf') from candidate_ch, path(genome) from genome_file, path(annot) from annot_file
+
+*  output:
+*      tuple val(replicateId), path(log) into feelnclog_ch, path('candidate_lncRNA.gtf.lncRNA.gtf') into candidate_ch
+
+*  script:
+*  """
+*        FEELnc_codpot.pl \
+*        -i 'candidate_lncRNA.gtf' \
+*        -a $annot \
+*        -b transcript_biotype=protein_coding \
+*        -g $genome \
+*	--mode=shuffle
+*  """
+*}
+
+*process 'make coding annot' {
+
+*   input:
+*       path(annot) from annot_file
+
+*   output:
+*       path(codingannot) into coding_annot_ch
+
+*   script:
+*   """
+*       grep "protein_coding" $annot
+*   """
+*}
+
+*process 'FEELncclassifer' {
+
+*  input:
+*      tuple val(replicateId), path('candidate_lncRNA.gtf.lncRNA.gtf') from candidate_ch, path(codingannot) from coding_annot_ch
+
+*  output:
+*      tuple val(replicateId), path(class) into feelncclass_ch
+
+*  script:
+*  """
+* FEELnc_classifier.pl \
+*        -i candidate_lncRNA.gtf.lncRNA.gtf \
+*        -a path(codingannot) from coding_annot_ch \
+*        -b
+*  """
+*}
+*/
