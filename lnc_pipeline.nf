@@ -83,8 +83,9 @@ process 'GMAPIndex' {
 
   script:
   """
-  mkdir gmap_dir \
-        gmap_build \
+  mkdir gmap_dir 
+        
+  gmap_build \
 	-d gmap_index \
 	-D gmap_dir \
 	${genome}
