@@ -9,10 +9,12 @@
 params.reads = '/xdisk/shaneburgess/amcooksey/lnc_nf_proj/project/*0.25_{1,2}.fq'
 params.annot = "$projectDir/ref/Gallus_gallus.GRCg6a.104.chr.gtf"
 params.genome = "$projectDir/ref/Gallus_gallus.GRCg6a.dna.toplevel.fa"
+params.genome_nowht = "$projectDir/ref/galgal6_nowhitespace.fa"
 params.uniprot = "$projectDir/ref/gga_ens_uni_mapping_15DEC21.csv"
 params.goa = "$projectDir/ref/goa_chicken.gaf"
 
 genome_file     =  file(params.genome)
+genome_nowht	=  file(params.genome_nowht)
 annot_file 	=  file(params.annot) 
 reads_ch        =  Channel.fromFilePairs(params.reads) 
 uniprot_file 	=  file(params.uniprot)
@@ -70,7 +72,7 @@ process 'TrinityGG' {
       tuple val(replicateId), path('Aligned.sortedByCoord.out.bam') from aligned_bam_ch
   
   output:
-      path(trinity) into trinity_ch
+      path('trinity/Trinity-GG.fasta') into trinity_ch
 
   script:
   """
@@ -85,7 +87,7 @@ process 'TrinityGG' {
 
 process 'GMAPIndex' {
   input:
-      path(genome) from genome_file
+      path(genome_nowht) from genome_file
 
   output:
       path(gmap_index) into gmap_idx_ch
@@ -93,30 +95,29 @@ process 'GMAPIndex' {
   script:
   """       
   gmap_build \
-	-d gmap_index \
+	-d gmap_indexes \
 	-D gmap_index \
-	$genome
+	${genome_nowht}
   """
 }
 
 
 process 'GMAP' {
    input:
-      file 'Trinity-GG.fasta' from trinity_ch
+      path('trinity/Trinity-GG.fasta') from trinity_ch
       path gmap_index from gmap_idx_ch
 
   output:
-      file 'gmap_out.gff3' into gmap_ch
+      file '*.gff3' into gmap_ch
 
   script:
   """
-  echo "testing"
   gmap \
-	-d gmap_index \
 	-D gmap_index \
+	-d gmap_indexes \
         -f 2 \
 	-t 26 \
-        Trinity-GG.fasta > gmap_out.gff3
+        trinity/Trinity-GG.fasta > gmap.gff3
   """
 }
 
