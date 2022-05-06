@@ -139,27 +139,27 @@ process 'mapped transcripts GFF to GTF' {
   """
 }
 
+process 'FEELnc_filter' {
+
+  input:
+      path('gmap.gtf') from gtf_ch
+      path(annot) from annot_file
+
+  output:
+      path('filter.log') into filterlog_ch
+      path('candidate_lncRNA.gtf') into candidate_ch
+
+  script:
+  """
+        FEELnc_filter.pl \
+	-i gmap.gtf \
+	-a $annot \
+	-o filter.log \
+	> candidate_lncRNA.gtf
+  """
+}
+
 /*
-*process 'FEELnc_filter' {
-
-*  input:
-*      path('gmap_out.gtf') from gtf_ch
-*      path(annot) from annot_file
-
-*  output:
-*      path('filter.log') into filterlog_ch
-*      path('candidate_lncRNA.gtf') into candidate_ch
-
-*  script:
-*  """
-*        FEELnc_filter.pl \
-*	-i gmap_out.gtf \
-*	-a $annot \
-*	-o filter.log \
-*	> candidate_lncRNA.gtf
-*  """
-*}
-
 *process 'make coding annot' {
 
 *   input:
