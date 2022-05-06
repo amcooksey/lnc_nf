@@ -121,25 +121,25 @@ process 'GMAP' {
   """
 }
 
+process 'mapped transcripts GFF to GTF' {
+
+  input:
+      path('gmap.gff3') from gmap_ch
+
+  output:
+      path('gmap.gtf') into gtf_ch
+
+  script:
+  """
+      gffread \
+      -F \
+      -T \
+      gmap.gff3 \
+      -o gmap.gtf
+  """
+}
+
 /*
-*process 'mapped transcripts GFF to GTF' {
-
-*  input:
-*      path('gmap_out.gff3') from gmap_ch
-
-*  output:
-*      path('gmap_out.gtf') into gtf_ch
-
-*  script:
-*  """
-*      gffread \
-*      -F \
-*      -T \
-*      gmap_out.gff3 \
-*      -o gmap_out.gtf
-*  """
-*}
-
 *process 'FEELnc_filter' {
 
 *  input:
