@@ -159,22 +159,22 @@ process 'FEELnc_filter' {
   """
 }
 
+process 'make coding annot' {
+
+   input:
+       path(annot) from annot_file
+
+   output:
+       path('Gallus_gallus.GRCg6a.104.protein_coding.gtf') into coding_annot_ch
+
+   script:
+   """
+       grep "protein_coding" $annot \
+	> Gallus_gallus.GRCg6a.104.protein_coding.gtf
+   """
+}
+
 /*
-*process 'make coding annot' {
-
-*   input:
-*       path(annot) from annot_file
-
-*   output:
-*       path('Gallus_gallus.GRCg6a.104.protein_coding.gtf') into coding_annot_ch
-
-*   script:
-*   """
-*       grep "protein_coding" $annot \
-*	> Gallus_gallus.GRCg6a.104.protein_coding.gtf
-*   """
-*}
-
 *process 'FEELnc_codpot' {
 
 *  input:
