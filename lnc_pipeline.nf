@@ -25,6 +25,8 @@ goa_file	=  file(params.goa)
  */
 
 process 'STARIndex' {
+  publishDir '$projectDir/project/starindex', overwrite: true
+
   input:
       path(genome) from genome_file 
 
@@ -43,6 +45,8 @@ process 'STARIndex' {
 }
 
 process 'STAR' {
+  publishDir '$projectDir/project/star', overwrite: true
+
   input:
       path genome from genome_file 
       path genome_dir from genome_dir_ch 
@@ -68,6 +72,8 @@ process 'STAR' {
 }
 
 process 'TrinityGG' {
+  publishDir '$projectDir/project/', overwrite: true
+
   input:
       tuple val(replicateId), path('Aligned.sortedByCoord.out.bam') from aligned_bam_ch
   
@@ -86,6 +92,8 @@ process 'TrinityGG' {
 }
 
 process 'GMAPIndex' {
+    publishDir '$projectDir/project/gmapindex', overwrite: true
+
   input:
       path(genome_nowht) from genome_file
 
@@ -103,6 +111,8 @@ process 'GMAPIndex' {
 
 
 process 'GMAP' {
+  publishDir '$projectDir/project/gmap', overwrite: true
+
    input:
       path('trinity/Trinity-GG.fasta') from trinity_ch
       path gmap_index from gmap_idx_ch
@@ -122,6 +132,7 @@ process 'GMAP' {
 }
 
 process 'mapped transcripts GFF to GTF' {
+  publishDir '$projectDir/project/gff2gtf', overwrite: true
 
   input:
       path('gmap.gff3') from gmap_ch
@@ -140,6 +151,7 @@ process 'mapped transcripts GFF to GTF' {
 }
 
 process 'FEELnc_filter' {
+  publishDir '$projectDir/project/FEELnc', overwrite: true
 
   input:
       path('gmap.gtf') from gtf_ch
@@ -160,6 +172,7 @@ process 'FEELnc_filter' {
 }
 
 process 'make coding annot' {
+  publishDir '$projectDir/project/coding_annot', overwrite: true
 
    input:
        path(annot) from annot_file
@@ -174,54 +187,57 @@ process 'make coding annot' {
    """
 }
 
+process 'FEELnc_codpot' {
+  publishDir '$projectDir/project/FEELnc', overwrite: true
+
+  input:
+      file('candidate_lncRNA.gtf') from candidate_ch
+      file(genome) from genome_file
+      file(annot) from annot_file
+  output:
+       path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') into lncrna_ch
+       path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') into lnc_gtf_ch
+       path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf') into mrna_ch
+
+  script:
+  """
+	export FEELNCPATH=/usr/local/
+        FEELnc_codpot.pl \
+        -i 'candidate_lncRNA.gtf' \
+        -a $annot \
+        -b transcript_biotype=protein_coding \
+        -g $genome \
+	--mode=shuffle
+  """
+}
+
+process 'FEELnc_classifier' {
+  publishDir '$projectDir/project/FEELnc', overwrite: true
+
+  input:
+      path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lncrna_ch
+      path('Gallus_gallus.GRCg6a.104.protein_coding.gtf') from coding_annot_ch
+
+  output:
+      path('classes.txt') into feelncclass_ch
+      path('classifier.log') into classlog_ch
+  script:
+  """
+ 	FEELnc_classifier.pl \
+        -i 'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf' \
+        -a 'Gallus_gallus.GRCg6a.104.protein_coding.gtf' \
+        -b
+  """
+}
+
+
 /*
-*process 'FEELnc_codpot' {
-
-*  input:
-*      file('candidate_lncRNA.gtf') from candidate_ch
-*      file(genome) from genome_file
-*      file('Gallus_gallus.GRCg6a.104.protein_coding.gtf') from coding_annot_ch
-*  output:
-*       file('candidate_lncRNA.gtf.lncRNA.gtf') into lncrna_ch
-*       file('candidate_lncRNA.gtf.lncRNA.gtf') into lnc_gtf_ch
-*       file('candidate_lncRNA.gtf.mRNA.gtf') into mrna_ch
-
-*  script:
-*  """
-*	export FEELNCPATH=/usr/local/
-*        FEELnc_codpot.pl \
-*        -i 'candidate_lncRNA.gtf' \
-*        -a 'Gallus_gallus.GRCg6a.104.protein_coding.gtf' \
-*        -b transcript_biotype=protein_coding \
-*        -g $genome \
-*	--mode=shuffle
-*  """
-*}
-
-
-*process 'FEELnc_classifer' {
-
-*  input:
-*      path('*candidate_lncRNA.gtf.lncRNA.gtf') from candidate_ch
-       path(proteincoding_"$annot") from coding_annot_ch
-
-*  output:
-*      path(class) into feelncclass_ch
-
-*  script:
-*  """
-* FEELnc_classifier.pl \
-*        -i '*candidate_lncRNA.gtf.lncRNA.gtf' \
-*        -a path(proteincoding_"$annot") from coding_annot_ch \
-*        -b
-*  """
-*}
-
 *THIS PROCESS NEEDS TO USE AN INPUT FOR A SECOND TIME--HOW?
 *If you need to connect a process output channel to more than one process
 *or operator use the into operator to create two (or more) copies of the same channel and use each of them to connect a separate process.
 
 *process 'gffcompare' {
+  publishDir '$projectDir/project/gffcompare', overwrite: true
 
 *  input:
 *      each('*candidate_lncRNA.gtf.lncRNA.gtf') from lnc_gtf_ch
