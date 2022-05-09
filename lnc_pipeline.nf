@@ -25,7 +25,7 @@ goa_file	=  file(params.goa)
  */
 
 process 'STARIndex' {
-  publishDir '$projectDir/project/starindex', overwrite: true
+  publishDir "$projectDir/publish/starindex", overwrite: true
 
   input:
       path(genome) from genome_file 
@@ -45,7 +45,7 @@ process 'STARIndex' {
 }
 
 process 'STAR' {
-  publishDir '$projectDir/project/star', overwrite: true
+  publishDir "$projectDir/publish/star", overwrite: true
 
   input:
       path genome from genome_file 
@@ -72,7 +72,7 @@ process 'STAR' {
 }
 
 process 'TrinityGG' {
-  publishDir '$projectDir/project/', overwrite: true
+  publishDir "$projectDir/publish/", overwrite: true
 
   input:
       tuple val(replicateId), path('Aligned.sortedByCoord.out.bam') from aligned_bam_ch
@@ -92,7 +92,7 @@ process 'TrinityGG' {
 }
 
 process 'GMAPIndex' {
-    publishDir '$projectDir/project/gmapindex', overwrite: true
+    publishDir "$projectDir/publish/gmapindex", overwrite: true
 
   input:
       path(genome_nowht) from genome_file
@@ -111,7 +111,7 @@ process 'GMAPIndex' {
 
 
 process 'GMAP' {
-  publishDir '$projectDir/project/gmap', overwrite: true
+  publishDir "$projectDir/publish/gmap", overwrite: true
 
    input:
       path('trinity/Trinity-GG.fasta') from trinity_ch
@@ -132,7 +132,7 @@ process 'GMAP' {
 }
 
 process 'mapped transcripts GFF to GTF' {
-  publishDir '$projectDir/project/gff2gtf', overwrite: true
+  publishDir "$projectDir/publish/gff2gtf", overwrite: true
 
   input:
       path('gmap.gff3') from gmap_ch
@@ -151,7 +151,7 @@ process 'mapped transcripts GFF to GTF' {
 }
 
 process 'FEELnc_filter' {
-  publishDir '$projectDir/project/FEELnc', overwrite: true
+  publishDir "$projectDir/publish/FEELnc", overwrite: true
 
   input:
       path('gmap.gtf') from gtf_ch
@@ -172,7 +172,7 @@ process 'FEELnc_filter' {
 }
 
 process 'make coding annot' {
-  publishDir '$projectDir/project/coding_annot', overwrite: true
+  publishDir "$projectDir/publish/coding_annot", overwrite: true
 
    input:
        path(annot) from annot_file
@@ -188,7 +188,7 @@ process 'make coding annot' {
 }
 
 process 'FEELnc_codpot' {
-  publishDir '$projectDir/project/FEELnc', overwrite: true
+  publishDir "$projectDir/publish/FEELnc", overwrite: true
 
   input:
       file('candidate_lncRNA.gtf') from candidate_ch
@@ -212,21 +212,22 @@ process 'FEELnc_codpot' {
 }
 
 process 'FEELnc_classifier' {
-  publishDir '$projectDir/project/FEELnc', overwrite: true
+  publishDir "$projectDir/publish/FEELnc", overwrite: true
 
   input:
       path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lncrna_ch
       path('Gallus_gallus.GRCg6a.104.protein_coding.gtf') from coding_annot_ch
 
   output:
-      path('classes.txt') into feelncclass_ch
-      path('classifier.log') into classlog_ch
+      path('lncRNA_classes.txt') into feelncclass_ch
+      path('*feelncclassifier.log') into classlog_ch
   script:
   """
  	FEELnc_classifier.pl \
         -i 'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf' \
         -a 'Gallus_gallus.GRCg6a.104.protein_coding.gtf' \
-        -b
+        -b \
+	> 'lncRNA_classes.txt'
   """
 }
 
@@ -236,25 +237,25 @@ process 'FEELnc_classifier' {
 *If you need to connect a process output channel to more than one process
 *or operator use the into operator to create two (or more) copies of the same channel and use each of them to connect a separate process.
 
-*process 'gffcompare' {
-  publishDir '$projectDir/project/gffcompare', overwrite: true
+process 'gffcompare' {
+  publishDir "$projectDir/publish/gffcompare", overwrite: true
 
-*  input:
-*      each('*candidate_lncRNA.gtf.lncRNA.gtf') from lnc_gtf_ch
+  input:
+      each('candidate_lncRNA.gtf.lncRNA.gtf') from lnc_gtf_ch
 
-*  output:
-*      path(unified_lncrna_ids) into mergedgtf_ch
+  output:
+      path('UNILNC*') into mergedgtf_ch
 
-*  script:
-*  """
-*    gffcompare \
-*        -p UNILNC \
-*        -o unified_lncrna_ids \
-*        --strict-match \
-*        --debug \
-*        '*candidate_lncRNA.gtf.lncRNA.gtf'	
-*  """
-*}
+  script:
+  """
+    gffcompare \
+        -p UNILNC \
+        -o unified_lncrna_ids \
+        --strict-match \
+        --debug \
+        '*candidate_lncRNA.gtf.lncRNA.gtf'	
+  """
+}
 
 *ADD GTF 2 FASTA FOR CANDIDATE FILES--FOR WHAT--nothing, just in case
 *ADD GFFCOMPARE, UNILNC MAPPING
