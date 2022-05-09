@@ -194,9 +194,11 @@ process 'FEELnc_codpot' {
       file('candidate_lncRNA.gtf') from candidate_ch
       file(genome) from genome_file
       file(annot) from annot_file
+
   output:
        path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') into lncrna_ch
        path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') into lnc_gtf_ch
+       path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') into lnc_fa_ch
        path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf') into mrna_ch
 
   script:
@@ -231,17 +233,50 @@ process 'FEELnc_classifier' {
   """
 }
 
+process 'gtf2fa_lnc' {
+  publishDir "$projectDir/publish/gffcompare", overwrite: true
+
+  input: 
+       path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lnc_fa_ch
+
+  output: 
+       path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.fa') into lnc_fasta_ch
+
+  script:
+  """
+        gffread \
+        -w 'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.fa' \
+        -g $genome_nowht \
+	'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf'
+  """
+}
+
+process 'gtf2fa_mrna' {
+  publishDir "$projectDir/publish/gffcompare", overwrite: true 
+
+  input: 
+       path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf') from mrna_ch
+
+  output: 
+       path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.fa') into mrna_fasta_ch
+
+  script:
+  """
+	gffread \
+	-w feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.fa \
+        -g $genome_nowht \
+	'feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf'
+
+  """
+}
 
 /*
-*THIS PROCESS NEEDS TO USE AN INPUT FOR A SECOND TIME--HOW?
-*If you need to connect a process output channel to more than one process
-*or operator use the into operator to create two (or more) copies of the same channel and use each of them to connect a separate process.
 
 process 'gffcompare' {
   publishDir "$projectDir/publish/gffcompare", overwrite: true
 
   input:
-      each('candidate_lncRNA.gtf.lncRNA.gtf') from lnc_gtf_ch
+      each('*candidate_lncRNA.gtf.lncRNA.gtf') from lnc_gtf_ch
 
   output:
       path('UNILNC*') into mergedgtf_ch
@@ -257,10 +292,18 @@ process 'gffcompare' {
   """
 }
 
+
+
 *ADD GTF 2 FASTA FOR CANDIDATE FILES--FOR WHAT--nothing, just in case
 *ADD GFFCOMPARE, UNILNC MAPPING
 *ADD FILTER FEELNC TARGETS
 *ADD PULLGO GAFOUT
+
+
+*THIS PROCESS NEEDS TO USE AN INPUT FOR A SECOND TIME--HOW?
+*If you need to connect a process output channel to more than one process
+*or operator use the into operator to create two (or more) copies of the same channel and use each of them to connect a separate process.
+
 
 */
 
