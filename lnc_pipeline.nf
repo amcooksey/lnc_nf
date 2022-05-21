@@ -6,7 +6,7 @@
  *  Parse the input parameters
  */
 
-params.reads = '/xdisk/shaneburgess/amcooksey/lnc_nf_proj/project/*0.1_{1,2}.fq'
+params.reads = '/xdisk/shaneburgess/amcooksey/lnc_nf_proj/project/*0.01_{1,2}.fq'
 params.annot = "$projectDir/ref/Gallus_gallus.GRCg6a.104.chr.gtf"
 params.genome = "$projectDir/ref/Gallus_gallus.GRCg6a.dna.toplevel.fa"
 params.genome_nowht = "$projectDir/ref/galgal6_nowhitespace.fa"
@@ -23,6 +23,8 @@ goa_file	=  file(params.goa)
 
 process 'STARIndex' {
   publishDir "$projectDir/publish/starindex", overwrite: true
+
+  errorStrategy 'finish'
 
   input:
       path(genome) from genome_file 
@@ -43,6 +45,8 @@ process 'STARIndex' {
 
 process 'STAR' {
   publishDir "$projectDir/publish/star/$replicateId", overwrite: true
+
+  errorStrategy 'finish'
 
   input:
       path genome from genome_file 
@@ -68,19 +72,21 @@ process 'STAR' {
   """
 }
 
-aligned_bam_ch 
-       .flatten()
-       .collate( 2 )
-       .set{ aligned_bam_ch }
+//aligned_bam_ch 
+//       .flatten()
+//       .collate( 2 )
+//       .set{ aligned_bam_ch }
 
 process 'TrinityGG' {
-  publishDir "$projectDir/publish/", overwrite: true
+  publishDir "$projectDir/publish/trinity/${replicateId}/", overwrite: true
 
+  errorStrategy 'retry'
+  maxRetries 3
   input:
       tuple val(replicateId), path('Aligned.sortedByCoord.out.bam') from aligned_bam_ch
 
   output:
-      tuple val(replicateId), path('trinity-$replicateId/Trinity-GG.fasta') into trinity_ch
+      tuple val(replicateId), path('trinity/Trinity-GG.fasta') into trinity_ch
 
   script:
   """
@@ -88,79 +94,86 @@ process 'TrinityGG' {
         --genome_guided_max_intron 10000 \
         --max_memory 3000G \
         --min_kmer_cov 3 \
-	--bflyCalculateCPU \
-        --output trinity-$replicateId
+	--output trinity
+  """
+}
+
+
+process 'GMAPIndex' {
+  publishDir "$projectDir/publish/gmapindex", overwrite: true
+
+  errorStrategy 'finish'
+
+  input:
+      path(genome_nowht) from genome_file
+
+  output:
+      path(gmap_index) into gmap_idx_ch
+
+  script:
+ """       
+  gmap_build \
+	-d gmap_indexes \
+	-D gmap_index \
+	${genome_nowht}
+  """
+}
+
+//trinity_ch 
+//       .flatten()
+//       .collate( 2 )
+//       .set{ trinity_ch }
+
+process 'GMAP' {
+  publishDir "$projectDir/publish/gmap/${replicateId}", overwrite: true
+
+  errorStrategy 'finish'
+
+   input:
+      tuple val(replicateId), path('trinity/Trinity-GG.fasta') from trinity_ch
+      path gmap_index from gmap_idx_ch
+
+  output:
+      file '*.gff3' into gmap_ch
+
+  script:
+  """
+  gmap \
+	-D gmap_index \
+	-d gmap_indexes \
+        -f 2 \
+	-t 26 \
+        trinity/Trinity-GG.fasta > gmap.gff3
+  """
+}
+
+
+process 'mapped transcripts GFF to GTF' {
+  publishDir "$projectDir/publish/gff2gtf/${replicateId}", overwrite: true
+
+  errorStrategy 'finish'
+
+  input:
+      tuple val(replicateId), path('gmap.gff3') from gmap_ch
+
+  output:
+      tuple val(replicateId), path('gmap.gtf') into gtf_ch
+
+  script:
+  """
+      gffread \
+      -F \
+      -T \
+      gmap.gff3 \
+      -o gmap.gtf
   """
 }
 
 /*
-
-*process 'GMAPIndex' {
-*    publishDir "$projectDir/publish/gmapindex", overwrite: true
-
-*  input:
-*      path(genome_nowht) from genome_file
-
-*  output:
-*      path(gmap_index) into gmap_idx_ch
-
-*  script:
-* """       
-*  gmap_build \
-*	-d gmap_indexes \
-*	-D gmap_index \
-*	${genome_nowht}
-*  """
-*}
-
-
-*process 'GMAP' {
-*  publishDir "$projectDir/publish/gmap", overwrite: true
-
-*   input:
-*      tuple val(replicateId), path('trinity/Trinity-GG.fasta') from trinity_ch
-*      path gmap_index from gmap_idx_ch
-
-*  output:
-*      file '*.gff3' into gmap_ch
-
-*  script:
-*  """
-*  gmap \
-*	-D gmap_index \
-*	-d gmap_indexes \
-*        -f 2 \
-*	-t 26 \
-*        trinity/Trinity-GG.fasta > gmap.gff3
-*  """
-*}
-
-*Channel
-*    .from(gmap_ch)
-*   .collate( 2 )
-*    .view()
-
-*process 'mapped transcripts GFF to GTF' {
-*  publishDir "$projectDir/publish/gff2gtf", overwrite: true
-
-*  input:
-*      tuple val(replicateId), path('gmap.gff3') from gmap_ch
-
-*  output:
-*      tuple val(replicateId), path('gmap.gtf') into gtf_ch
-
-*  script:
-*  """
-*      gffread \
-*      -F \
-*      -T \
-*      gmap.gff3 \
-*      -o gmap.gtf
-*  """
-*}
-
 *process 'FEELnc_filter' {
 *  publishDir "$projectDir/publish/FEELnc", overwrite: true
+
+  errorStrategy 'finish'
 
 *  input:
 *      tuple val(replicateId), path('gmap.gtf') from gtf_ch
@@ -183,6 +196,8 @@ process 'TrinityGG' {
 *process 'make coding annot' {
 *  publishDir "$projectDir/publish/coding_annot", overwrite: true
 
+  errorStrategy 'finish'
+
 *   input:
 *       path(annot) from annot_file
 
@@ -198,6 +213,8 @@ process 'TrinityGG' {
 
 *process 'FEELnc_codpot' {
 *  publishDir "$projectDir/publish/FEELnc", overwrite: true
+
+  errorStrategy 'finish'
 
 *  input:
 *      tuple val(replicateId), path('candidate_lncRNA.gtf') from candidate_ch
@@ -225,6 +242,8 @@ process 'TrinityGG' {
 *process 'FEELnc_classifier' {
 *  publishDir "$projectDir/publish/FEELnc", overwrite: true
 
+  errorStrategy 'finish'
+
 *  input:
 *      tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lncrna_ch
 *      path('Gallus_gallus.GRCg6a.104.protein_coding.gtf') from coding_annot_ch
@@ -245,6 +264,8 @@ process 'TrinityGG' {
 *process 'gtf2fa_lnc' {
 *  publishDir "$projectDir/publish/gffcompare", overwrite: true
 
+  errorStrategy 'finish'
+
 *  input: 
 *       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lnc_fa_ch
 
@@ -262,6 +283,8 @@ process 'TrinityGG' {
 
 *process 'gtf2fa_mrna' {
 *  publishDir "$projectDir/publish/gffcompare", overwrite: true 
+
+  errorStrategy 'finish'
 
 *  input: 
 *       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf') from mrna_ch
@@ -282,6 +305,8 @@ process 'TrinityGG' {
 
 *process 'gffcompare' {
 *  publishDir "$projectDir/publish/gffcompare", overwrite: true
+
+  errorStrategy 'finish'
 
 *  input:
 *      path('candidate_lncRNA.gtf.lncRNA.gtf') from lnc_gtf_ch
