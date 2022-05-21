@@ -72,10 +72,6 @@ process 'STAR' {
   """
 }
 
-//aligned_bam_ch 
-//       .flatten()
-//       .collate( 2 )
-//       .set{ aligned_bam_ch }
 
 process 'TrinityGG' {
   publishDir "$projectDir/publish/trinity/${replicateId}/", overwrite: true
@@ -119,10 +115,6 @@ process 'GMAPIndex' {
   """
 }
 
-//trinity_ch 
-//       .flatten()
-//       .collate( 2 )
-//       .set{ trinity_ch }
 
 process 'GMAP' {
   publishDir "$projectDir/publish/gmap/${replicateId}", overwrite: true
@@ -134,7 +126,7 @@ process 'GMAP' {
       path gmap_index from gmap_idx_ch
 
   output:
-      file '*.gff3' into gmap_ch
+      tuple val(replicateId), path('gmap.gff3') into gmap_ch
 
   script:
   """
