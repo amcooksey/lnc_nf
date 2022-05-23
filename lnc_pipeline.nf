@@ -252,49 +252,49 @@ process 'FEELnc_classifier' {
   """
 }
 
+
+process 'gtf2fa_lnc' {
+  publishDir "$projectDir/publish/gffcompare", overwrite: true
+
+  errorStrategy 'finish'
+
+  input: 
+       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lnc_fa_ch
+
+  output: 
+       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.fa') into lnc_fasta_ch
+
+  script:
+  """
+        gffread \
+        -w 'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.fa' \
+        -g $genome_nowht \
+	'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf'
+  """
+}
+
+process 'gtf2fa_mrna' {
+  publishDir "$projectDir/publish/gffcompare", overwrite: true 
+
+  errorStrategy 'finish'
+
+  input: 
+       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf') from mrna_ch
+
+  output: 
+       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.fa') into mrna_fasta_ch
+
+  script:
+  """
+	gffread \
+	-w feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.fa \
+        -g $genome_nowht \
+	'feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf'
+
+  """
+}
+
 /*
-
-*process 'gtf2fa_lnc' {
-*  publishDir "$projectDir/publish/gffcompare", overwrite: true
-
-  errorStrategy 'finish'
-
-*  input: 
-*       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lnc_fa_ch
-
-*  output: 
-*       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.fa') into lnc_fasta_ch
-
-*  script:
-*  """
-*        gffread \
-*        -w 'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.fa' \
-*        -g $genome_nowht \
-*	'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf'
-*  """
-*}
-
-*process 'gtf2fa_mrna' {
-*  publishDir "$projectDir/publish/gffcompare", overwrite: true 
-
-  errorStrategy 'finish'
-
-*  input: 
-*       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf') from mrna_ch
-
-*  output: 
-*       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.fa') into mrna_fasta_ch
-
-*  script:
-*  """
-*	gffread \
-*	-w feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.fa \
-*        -g $genome_nowht \
-*	'feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf'
-
-*  """
-*}
-
 
 *process 'gffcompare' {
 *  publishDir "$projectDir/publish/gffcompare", overwrite: true
