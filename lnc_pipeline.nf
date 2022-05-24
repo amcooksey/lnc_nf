@@ -126,7 +126,7 @@ process 'GMAP' {
       path gmap_index from gmap_idx_ch
 
   output:
-      tuple val(replicateId), path('gmap.gff3') into gmap_ch
+      tuple val(replicateId), path("${replicateId}_gmap.gff3") into gmap_ch
 
   script:
   """
@@ -135,7 +135,7 @@ process 'GMAP' {
 	-d gmap_indexes \
         -f 2 \
 	-t 26 \
-        trinity/Trinity-GG.fasta > gmap.gff3
+        trinity/Trinity-GG.fasta > "${replicateId}_gmap.gff3"
   """
 }
 
@@ -146,20 +146,21 @@ process 'mapped transcripts GFF to GTF' {
   errorStrategy 'finish'
 
   input:
-      tuple val(replicateId), path('gmap.gff3') from gmap_ch
+      tuple val(replicateId), path("${replicateId}_gmap.gff3") from gmap_ch
 
   output:
-      tuple val(replicateId), path('gmap.gtf') into gtf_ch
+      tuple val(replicateId), path("${replicateId}_gmap.gtf") into gtf_ch
 
   script:
   """
       gffread \
       -F \
       -T \
-      gmap.gff3 \
-      -o gmap.gtf
+      "${replicateId}_gmap.gff3" \
+      -o "${replicateId}_gmap.gtf"
   """
 }
+
 
 process 'FEELnc_filter' {
   publishDir "$projectDir/publish/FEELnc/${replicateId}", overwrite: true
@@ -167,20 +168,20 @@ process 'FEELnc_filter' {
   errorStrategy 'finish'
 
   input:
-      tuple val(replicateId), path('gmap.gtf') from gtf_ch
+      tuple val(replicateId), path("${replicateId}_gmap.gtf") from gtf_ch
       path(annot) from annot_file
 
   output:
-      tuple val(replicateId), path('filter.log') into filterlog_ch
-      tuple val(replicateId), path('candidate_lncRNA.gtf') into candidate_ch
+      tuple val(replicateId), path("${replicateId}_filter.log") into filterlog_ch
+      tuple val(replicateId), path("${replicateId}_candidate_lncRNA.gtf") into candidate_ch
 
   script:
   """
         FEELnc_filter.pl \
-	-i gmap.gtf \
+	-i "${replicateId}_gmap.gtf" \
 	-a $annot \
-	-o filter.log \
-	> candidate_lncRNA.gtf
+	-o "${replicateId}_filter.log" \
+	> "${replicateId}_candidate_lncRNA.gtf"
   """
 }
 
@@ -208,21 +209,21 @@ process 'FEELnc_codpot' {
   errorStrategy 'finish'
 
   input:
-      tuple val(replicateId), path('candidate_lncRNA.gtf') from candidate_ch
+      tuple val(replicateId), path("${replicateId}_candidate_lncRNA.gtf") from candidate_ch
       path(genome) from genome_file
       path(annot) from annot_file
 
   output:
-       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') into lncrna_ch
-       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') into lnc_gtf_ch
-       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') into lnc_fa_ch
-       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf') into mrna_ch
+       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lncrna_ch
+       path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lnc_gtf_ch
+       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lnc_fa_ch
+       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.mRNA.gtf") into mrna_ch
 
   script:
   """
 	export FEELNCPATH=/usr/local/
         FEELnc_codpot.pl \
-        -i 'candidate_lncRNA.gtf' \
+        -i "${replicateId}_candidate_lncRNA.gtf" \
         -a $annot \
         -b transcript_biotype=protein_coding \
         -g $genome \
@@ -236,89 +237,96 @@ process 'FEELnc_classifier' {
   errorStrategy 'finish'
 
   input:
-      tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lncrna_ch
+      tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") from lncrna_ch
       path('Gallus_gallus.GRCg6a.104.protein_coding.gtf') from coding_annot_ch
 
   output:
-      tuple val(replicateId), path('lncRNA_classes.txt') into feelncclass_ch
-      tuple val(replicateId), path('*feelncclassifier.log') into classlog_ch
+      tuple val(replicateId), path("${replicateId}_lncRNA_classes.txt") into feelncclass_ch
+      tuple val(replicateId), path("${replicateId}_candidate_lncRNA.gtf.lncRNA.feelncclassifier.log") into classlog_ch
+
   script:
   """
  	FEELnc_classifier.pl \
-        -i 'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf' \
+        -i "feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf" \
         -a 'Gallus_gallus.GRCg6a.104.protein_coding.gtf' \
         -b \
-	> 'lncRNA_classes.txt'
+	> "${replicateId}_lncRNA_classes.txt"
   """
 }
 
 
 process 'gtf2fa_lnc' {
-  publishDir "$projectDir/publish/gffcompare", overwrite: true
+  publishDir "$projectDir/publish/gffcompare/${replicateId}", overwrite: true
 
   errorStrategy 'finish'
 
   input: 
-       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf') from lnc_fa_ch
+       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") from lnc_fa_ch
 
   output: 
-       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.fa') into lnc_fasta_ch
+       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.fa") into lnc_fasta_ch
 
   script:
   """
         gffread \
-        -w 'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.fa' \
+        -w "feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.fa" \
         -g $genome_nowht \
-	'feelnc_codpot_out/candidate_lncRNA.gtf.lncRNA.gtf'
+	"feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf"
   """
 }
 
 process 'gtf2fa_mrna' {
-  publishDir "$projectDir/publish/gffcompare", overwrite: true 
+  publishDir "$projectDir/publish/gffcompare/${replicateId}", overwrite: true 
 
   errorStrategy 'finish'
 
   input: 
-       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf') from mrna_ch
+       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.mRNA.gtf") from mrna_ch
 
   output: 
-       tuple val(replicateId), path('feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.fa') into mrna_fasta_ch
+       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.mRNA.fa") into mrna_fasta_ch
 
   script:
   """
 	gffread \
-	-w feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.fa \
+	-w "feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.mRNA.fa" \
         -g $genome_nowht \
-	'feelnc_codpot_out/candidate_lncRNA.gtf.mRNA.gtf'
+	"feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.mRNA.gtf"
 
   """
 }
 
-/*
 
-*process 'gffcompare' {
-*  publishDir "$projectDir/publish/gffcompare", overwrite: true
+Channel
+     .from lnc_gtf_ch
+     .toSortedList()
+     .set {merge_ch}
+
+
+process 'gtfmerge' {
+  publishDir "$projectDir/publish/gtfmerge/", overwrite: true
 
   errorStrategy 'finish'
 
-*  input:
-*      path('candidate_lncRNA.gtf.lncRNA.gtf') from lnc_gtf_ch
+  input:
+      path(gtf) from merge_ch
 
-*  output:
-*      path('UNILNC*') into mergedgtf_ch
+  output:
+      path('unified_lncrna_ids*') into mergedgtf_ch
 
-*  script:
-*  """
-*    gffcompare \
-*        -p UNILNC \
-*        -o unified_lncrna_ids \
-*        --strict-match \
-*        --debug \
-*        'candidate_lncRNA.gtf.lncRNA.gtf'	
-*  """
-*}
+  script:
+  """
+    gffcompare \
+        -p UNILNC \
+        -o unified_lncrna_ids \
+        --strict-match \
+        --debug \
+        *gtf	
+  """
+}
 
 
+/*
 
 *ADD GTF 2 FASTA FOR CANDIDATE FILES--FOR WHAT--nothing, just in case
 *ADD GFFCOMPARE, UNILNC MAPPING
@@ -332,4 +340,3 @@ process 'gtf2fa_mrna' {
 
 
 */
-
