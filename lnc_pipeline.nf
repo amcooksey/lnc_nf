@@ -216,6 +216,7 @@ process 'FEELnc_codpot' {
   output:
        tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lncrna_ch
        path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lnc_gtf_ch
+       path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into mapping_ch
        tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lnc_fa_ch
        tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.mRNA.gtf") into mrna_ch
 
@@ -302,7 +303,6 @@ Channel
      .toSortedList()
      .set {merge_ch}
 
-
 process 'gtfmerge' {
   publishDir "$projectDir/publish/gtfmerge/", overwrite: true
 
@@ -312,7 +312,10 @@ process 'gtfmerge' {
       path(gtf) from merge_ch
 
   output:
-      path('unified_lncrna_ids*') into mergedgtf_ch
+      path('unified_lncrna_ids.combined.gtf') into mergedgtf_ch
+      path('unified_lncrna_ids.loci') into mergeloci_ch
+      path('unified_lncrna_ids.tracking') into mergetrack_ch
+      path('unified_lncrna_ids.stats') into mergestats_ch
 
   script:
   """
@@ -326,10 +329,27 @@ process 'gtfmerge' {
 }
 
 
+process 'UNILNCmapping' {
+  publishDir "$projectDir/publish/gtfmerge", overwrite: true
+
+  errorStrategy 'finish'
+
+  input:
+       path('unified_lncrna_ids.stats') from mergestats_ch
+       path('unified_lncrna_ids.tracking') from mergetrack_ch
+
+  output:
+       path('*_lncRNA_mapping.txt') into mapped_ch
+
+  script:
+  """
+    makeUNILNCmapping.sh
+  """
+}
+
 /*
 
-*ADD GTF 2 FASTA FOR CANDIDATE FILES--FOR WHAT--nothing, just in case
-*ADD GFFCOMPARE, UNILNC MAPPING
+*UNILNC MAPPING
 *ADD FILTER FEELNC TARGETS
 **ADD PULLGO GAFOUT
 
