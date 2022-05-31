@@ -347,9 +347,29 @@ process 'UNILNCmapping' {
   """
 }
 
+process 'top targets' {
+  publishDir "$projectDir/publish/FEELnc/${replicateId}", overwrite: true
+
+  errorStrategy 'finish'
+
+  input:
+      tuple val(replicateId), path("${replicateId}_lncRNA_classes.txt") from feelncclass_ch
+      path('*_lncRNA_mapping.txt') from mapped_ch
+
+  output:
+
+      tuple val(replicateId), path("lncRNA_classes_UNILNC_top2.txt") into toptarg
+
+  script:
+  """
+	filter_feelnc_topX.sh
+  """
+}
+
+
+
 /*
 
-*UNILNC MAPPING
 *ADD FILTER FEELNC TARGETS
 **ADD PULLGO GAFOUT
 
