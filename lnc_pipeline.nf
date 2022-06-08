@@ -12,6 +12,7 @@ params.genome = "$projectDir/ref/Gallus_gallus.GRCg6a.dna.toplevel.fa"
 params.genome_nowht = "$projectDir/ref/galgal6_nowhitespace.fa"
 params.uniprot = "$projectDir/ref/gga_ens_uni_mapping_15DEC21.csv"
 params.goa = "$projectDir/ref/goa_chicken.gaf"
+params.bto = "$projectDir/ref/bto.txt"
 
 genome_file     =  file(params.genome)
 genome_nowht	=  file(params.genome_nowht)
@@ -19,6 +20,7 @@ annot_file 	=  file(params.annot)
 reads_ch        =  Channel.fromFilePairs(params.reads) 
 uniprot_file 	=  file(params.uniprot)
 goa_file	=  file(params.goa)
+bto_file 	=  file(params.bto)
 
 
 process 'STARIndex' {
@@ -340,6 +342,7 @@ process 'UNILNCmapping' {
 
   output:
        path('*_lncRNA_mapping.txt') into mapped_ch
+       path('*_lncRNA_mapping.txt') into maptogo_ch
 
   script:
   """
@@ -366,11 +369,61 @@ process 'top targets' {
   """
 }
 
+process 'pull GO each' {
+  publishDir "$projectDir/publish/GO/${replicateId}", overwrite: true
 
+  errorStrategy 'finish'
+
+  input:
+      tuple val(replicateId), path("lncRNA_classes_UNILNC_top2.txt") from toptarg
+      path(uniprot) from uniprot_file
+      path(goa) from goa_file
+      path(bto) from bto_file
+      path('*_lncRNA_mapping.txt') from maptogo_ch
+
+  output:
+      path("${replicateId}_feelnc_GO_2.gaf") into go_ch
+
+  script:
+  """
+	pull_go_topX_gafout_feelnc_each.sh \
+	-a AgBase \
+	-t 9031 \
+	-o lncRNA \
+	-d Agbase \
+	-T "${replicateId}"
+
+  """
+}
+
+
+Channel
+     .from go_ch
+     .toSortedList()
+     .set {mergego_ch}
+
+
+process 'pull GO all' {
+  publishDir "$projectDir/publish/GO/", overwrite: true
+
+  errorStrategy 'finish'
+
+  input:
+      path('*_feelnc_GO_2.gaf') from mergego_ch
+
+  output:
+      path('feelnc_GO_2.gaf') into tot_GO_ch
+
+  script:
+  """
+        pull_go_topX_gafout_feelnc_all.sh 
+
+  """
+}
 
 /*
 
-*ADD FILTER FEELNC TARGETS
+
 **ADD PULLGO GAFOUT
 
 
@@ -380,3 +433,4 @@ process 'top targets' {
 
 
 */
+
