@@ -1,12 +1,4 @@
-/*Also note that the pipeline work directory is intended to be used as a temporary scratch area. 
-*The final workflow outputs are expected to be stored in a different location specified using the publishDir directive.
-*/
-
-/*
- *  Parse the input parameters
- */
-
-params.reads = '/xdisk/shaneburgess/amcooksey/lnc_nf_proj/project/*0.01_{1,2}.fq'
+params.reads = "$projectDir/project/*0.1_{1,2}.fq"
 params.annot = "$projectDir/ref/Gallus_gallus.GRCg6a.104.chr.gtf"
 params.genome = "$projectDir/ref/Gallus_gallus.GRCg6a.dna.toplevel.fa"
 params.genome_nowht = "$projectDir/ref/galgal6_nowhitespace.fa"
@@ -196,12 +188,11 @@ process 'make coding annot' {
        path(annot) from annot_file
 
    output:
-       path('Gallus_gallus.GRCg6a.104.protein_coding.gtf') into coding_annot_ch
+       path('coding.gtf') into coding_annot_ch
 
    script:
    """
-       grep "protein_coding" $annot \
-	> Gallus_gallus.GRCg6a.104.protein_coding.gtf
+       grep "protein_coding" $annot > coding.gtf
    """
 }
 
@@ -241,8 +232,7 @@ process 'FEELnc_classifier' {
 
   input:
       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") from lncrna_ch
-      path('Gallus_gallus.GRCg6a.104.protein_coding.gtf') from coding_annot_ch
-
+      path('coding.gtf') from coding_annot_ch
   output:
       tuple val(replicateId), path("${replicateId}_lncRNA_classes.txt") into feelncclass_ch
       tuple val(replicateId), path("${replicateId}_candidate_lncRNA.gtf.lncRNA.feelncclassifier.log") into classlog_ch
@@ -251,7 +241,7 @@ process 'FEELnc_classifier' {
   """
  	FEELnc_classifier.pl \
         -i "feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf" \
-        -a 'Gallus_gallus.GRCg6a.104.protein_coding.gtf' \
+        -a 'coding.gtf' \
         -b \
 	> "${replicateId}_lncRNA_classes.txt"
   """
@@ -361,11 +351,12 @@ process 'top targets' {
 
   output:
 
-      tuple val(replicateId), path("lncRNA_classes_UNILNC_top2.txt") into toptarg
+      tuple val(replicateId), path("${replicateId}_lncRNA_classes_UNILNC_top2.txt") into toptarg
 
   script:
   """
-	filter_feelnc_topX.sh
+	filter_feelnc_topX.sh \
+	-t "${replicateId}"
   """
 }
 
@@ -375,7 +366,7 @@ process 'pull GO each' {
   errorStrategy 'finish'
 
   input:
-      tuple val(replicateId), path("lncRNA_classes_UNILNC_top2.txt") from toptarg
+      tuple val(replicateId), path("${replicatedId}_lncRNA_classes_UNILNC_top2.txt") from toptarg
       path(uniprot) from uniprot_file
       path(goa) from goa_file
       path(bto) from bto_file
@@ -421,16 +412,4 @@ process 'pull GO all' {
   """
 }
 
-/*
-
-
-**ADD PULLGO GAFOUT
-
-
-*THIS PROCESS NEEDS TO USE AN INPUT FOR A SECOND TIME--HOW?
-*If you need to connect a process output channel to more than one process
-*or operator use the into operator to create two (or more) copies of the same channel and use each of them to connect a separate process.
-
-
-*/
 
