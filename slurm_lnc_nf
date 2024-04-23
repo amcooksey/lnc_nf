@@ -1,0 +1,11 @@
+#!/bin/bash
+#SBATCH --job-name=nf_main
+#SBATCH --ntasks=1
+#SBATCH --mem=5gb                    
+#SBATCH --time=150:00:00   
+#SBATCH --partition=standard
+#SBATCH --account=fionamcc
+
+cd /xdisk/shaneburgess/amcooksey/lnc_proj_nf
+
+./nextflow run lnc_pipeline.nf

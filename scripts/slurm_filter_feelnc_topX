@@ -1,0 +1,49 @@
+#!/bin/bash
+#SBATCH --job-name=filterfeelnc
+#SBATCH --ntasks=1
+#SBATCH --mem=5gb
+#SBATCH --time=72:00:00
+#SBATCH --partition=standard
+#SBATCH --account=fionamcc
+#SBATCH --array=[0-2]
+
+tararray=(1 2 3 4 5)
+tissuearray=(isthmus magnum shellgland) 
+
+tissue=${tissuearray[${SLURM_ARRAY_TASK_ID}]}
+
+
+#PULL INTERACTING TRANSCRIPTS BY NUMBER OF TARGETS DESIRED
+
+cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/"$tissue"
+for numtar in "${tararray[@]}"
+	do
+	awk '{ print $3 }' "$tissue"_lncRNA_classes.txt | uniq > "$tissue".tmp  	
+	rm "$tissue"_lncRNA_classes_top"$numtar".txt
+	touch "$tissue"_lncRNA_classes_top"$numtar".txt	
+	for k in $(cat "$tissue".tmp)
+		do
+		grep $k  "$tissue"_lncRNA_classes.txt | head -n $numtar >> "$tissue"_lncRNA_classes_top"$numtar".txt
+		done
+	done
+rm "$tissue".tmp
+
+
+cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/"$tissue"
+for numtar in "${tararray[@]}"
+do
+	rm "$tissue"_lncRNA_classes_UNILNC_top"$numtar".txt
+	touch "$tissue"_lncRNA_classes_UNILNC_top"$numtar".txt
+	cat "$tissue"_lncRNA_classes_top"$numtar".txt | while read -r isBest lncRNA_gene lncRNA_transcript lncRNA_biotype partnerRNA_gene partnerRNA_transcript partnerRNA_biotype direction type distance subtype location
+	do
+		cat "$tissue"_lncRNA_mapping.txt | while read -r uni xloc gene trans
+		do
+			if [ $trans = $lncRNA_transcript ] 
+			then
+				echo -e "$uni\t$isBest\t$lncRNA_gene\t$lncRNA_transcript\t$lncRNA_biotype\t$partnerRNA_gene\t$partnerRNA_transcript\t$partnerRNA_biotype\t$direction\t$type\t$distance\t$subtype\t$location" \
+				>> "$tissue"_lncRNA_classes_UNILNC_top"$numtar".txt
+			fi
+			done
+		done
+	done
+done

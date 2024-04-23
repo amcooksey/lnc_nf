@@ -1,4 +1,4 @@
-params.reads = "$projectDir/project/*0.1_{1,2}.fq"
+params.reads = "$projectDir/project/M*_{1,2}.fq"
 params.annot = "$projectDir/ref/Gallus_gallus.GRCg6a.104.chr.gtf"
 params.genome = "$projectDir/ref/Gallus_gallus.GRCg6a.dna.toplevel.fa"
 params.genome_nowht = "$projectDir/ref/galgal6_nowhitespace.fa"
@@ -209,10 +209,10 @@ process 'FEELnc_codpot' {
   output:
        tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lncrna_ch
        path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lnc_gtf_ch
-       path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into mapping_ch
+       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into mapping_ch
        tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") into lnc_fa_ch
        tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.mRNA.gtf") into mrna_ch
-
+       val(replicateId) into merge_repId_ch
   script:
   """
 	export FEELNCPATH=/usr/local/
@@ -222,6 +222,8 @@ process 'FEELnc_codpot' {
         -b transcript_biotype=protein_coding \
         -g $genome \
 	--mode=shuffle
+
+	echo $replicateId
   """
 }
 
@@ -234,7 +236,8 @@ process 'FEELnc_classifier' {
       tuple val(replicateId), path("feelnc_codpot_out/${replicateId}_candidate_lncRNA.gtf.lncRNA.gtf") from lncrna_ch
       path('coding.gtf') from coding_annot_ch
   output:
-      tuple val(replicateId), path("${replicateId}_lncRNA_classes.txt") into feelncclass_ch
+      path("${replicateId}_lncRNA_classes.txt") into feelncclass_ch
+      val(replicateId) into feelncclass_val_ch
       tuple val(replicateId), path("${replicateId}_candidate_lncRNA.gtf.lncRNA.feelncclassifier.log") into classlog_ch
 
   script:
@@ -295,6 +298,11 @@ Channel
      .toSortedList()
      .set {merge_ch}
 
+//Channel
+//     .from merge_repId_ch
+//     .toSortedList()
+//     .set {merge_reps}
+
 process 'gtfmerge' {
   publishDir "$projectDir/publish/gtfmerge/", overwrite: true
 
@@ -329,29 +337,31 @@ process 'UNILNCmapping' {
   input:
        path('unified_lncrna_ids.stats') from mergestats_ch
        path('unified_lncrna_ids.tracking') from mergetrack_ch
+       val (replicateId) from merge_repId_ch
 
   output:
-       path('*_lncRNA_mapping.txt') into mapped_ch
-       path('*_lncRNA_mapping.txt') into maptogo_ch
+       path("${replicateId}_lncRNA_mapping.txt") into mapped_ch
+       tuple val(replicateId), path("${replicateId}_lncRNA_mapping.txt") into maptogo_ch
 
   script:
   """
-    makeUNILNCmapping.sh
+    makeUNILNCmapping.sh \
+    -t "${replicateId}"
   """
 }
 
 process 'top targets' {
   publishDir "$projectDir/publish/FEELnc/${replicateId}", overwrite: true
 
-  errorStrategy 'finish'
+  errorStrategy 'error'
 
   input:
-      tuple val(replicateId), path("${replicateId}_lncRNA_classes.txt") from feelncclass_ch
-      path('*_lncRNA_mapping.txt') from mapped_ch
+      path("${replicateId}_lncRNA_classes.txt") from feelncclass_ch
+      val(replicateId) from feelncclass_val_ch
+      path("${replicateId}_lncRNA_mapping.txt") from mapped_ch
 
   output:
-
-      tuple val(replicateId), path("${replicateId}_lncRNA_classes_UNILNC_top2.txt") into toptarg
+      path("${replicateId}_lncRNA_classes_UNILNC_top1.txt") into toptarg
 
   script:
   """
@@ -366,11 +376,11 @@ process 'pull GO each' {
   errorStrategy 'finish'
 
   input:
-      tuple val(replicateId), path("${replicatedId}_lncRNA_classes_UNILNC_top2.txt") from toptarg
+      path("${replicatedId}_lncRNA_classes_UNILNC_top2.txt") from toptarg
       path(uniprot) from uniprot_file
       path(goa) from goa_file
       path(bto) from bto_file
-      path('*_lncRNA_mapping.txt') from maptogo_ch
+      path("${replicateId}_lncRNA_mapping.txt") from maptogo_ch
 
   output:
       path("${replicateId}_feelnc_GO_2.gaf") into go_ch
@@ -411,5 +421,6 @@ process 'pull GO all' {
 
   """
 }
+
 
 

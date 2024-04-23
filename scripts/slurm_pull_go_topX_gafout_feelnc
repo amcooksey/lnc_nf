@@ -1,0 +1,138 @@
+#!/bin/bash
+#SBATCH --job-name=gaf-feelnc
+#SBATCH --ntasks=1
+#SBATCH --mem=5gb
+#SBATCH --time=25:00:00
+#SBATCH --partition=standard
+#SBATCH --account=shaneburgess
+
+tissuearray=(isthmus magnum shellgland)
+
+declare -A btoarray
+while read -r key value; do
+    btoarray[$key]=$value
+done < /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/bto_tissue_codes.txt
+
+tararray=(1 2 3 4 5)
+for numtar in "${tararray[@]}"
+do
+	for tissue in "${tissuearray[@]}"
+	do
+		mkdir -p /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/GO/
+		cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/GO/
+
+		if [ ! -d "$tissue" ]
+		then mkdir "$tissue"
+		fi
+
+		cd "$tissue"
+		rm "$tissue"_feelnc_GO_"$numtar".gaf
+		touch "$tissue"_feelnc_GO_"$numtar".gaf
+		sed 's/\t\t/\tempty\t/g' /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/ref_galgal6/goa_chicken.gaf > /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/ref_galgal6/goa_chicken.gaf.tmp
+
+		#SET EACH RELEVANT FILE AS VARIABLE FOR EASE OF ACCESS
+		feelncX="/xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/"$tissue"/"$tissue"_lncRNA_classes_UNILNC_top"$numtar".txt"
+		mapping="/xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/ref_galgal6/gga_ens_uni_mapping_15DEC21.csv"
+		gaf="/xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/ref_galgal6/goa_chicken.gaf"
+		tmpgaf="/xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/ref_galgal6/goa_chicken.gaf.tmp"
+		unilncmap="/xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/$tissue/"$tissue"_lncRNA_mapping.txt"
+
+		taxon=9823
+		database=AgBase
+		assby=AgBase
+		dbobjtyp=lncRNA
+		date=$(date '+%Y%m%d')
+
+
+		cat $feelncX | while IFS=$'\t' read -r unilnc best tringene trinitylnc none ensbtag ensbtat partbiotype dir type distance subtype location
+		do
+		  	grep $ensbtat $mapping > "$ensbtat".tmp
+		        if [ ! -s "$ensbtat".tmp ]
+		        then    
+				uniprot="none"
+		                echo -e "$unilnc\t$ensbtat\t$trinitylnc" >> "$numtar"_nouni.tmp
+		                echo -e "$uniprot--NONE--F" >> uniprot_tracking.tmp
+        		fi
+		        grep $ensbtat $mapping | while IFS=$',' read -r ensbtag ensbtat biotype swiss trembl
+	                do
+		                if [[ -s "$ensbtat".tmp ]]
+		                then
+               				touch uniprot_tracking.tmp
+                       			if [ ! -z "$swiss" ]
+                       			then uniprot=$swiss
+              				      echo -e "$uniprot--SWISS--F" >> uniprot_tracking.tmp
+                       			elif [[ -z "$swiss"  &&  ! -z "$trembl" ]]
+                       			then uniprot=$trembl
+               				      echo -e "$uniprot--TREMBL--F" >> uniprot_tracking.tmp
+                       			else uniprot="WTF"
+                       				echo -e "$uniprot--WTF--F" >> uniprot_tracking.tmp
+                       			fi
+		                        if [[ "$uniprot" != "none" ]]
+		                        then
+		                                grep $uniprot $tmpgaf | sort -rdk 9 > "$uniprot"_fromgaf.tmp
+		                                if [[ ! -s "$uniprot"_fromgaf.tmp ]]
+		                                then echo -e "$uniprot\t$ensbtat\t$ensbtag\t$unilnc" >> noGO_"$numtar".tmp
+		                                fi
+		                                cat "$uniprot"_fromgaf.tmp | while IFS=$'\t' read -r db objid objsym qual goid dbref eco worf aspect objname remainder
+               			                do
+		                                       if [[ ! -z $unilnc ]]
+               			                        then
+								echo -e "$database\t$unilnc\t$unilnc\t\t$goid\t\tIGC\tEnsembl:$ensbtat\t$aspect\t\t\t$dbobjtyp\ttaxon:$taxon\t$date\t$assby\t${btoarray["$tissue"]}\t" >> "$tissue"_feelnc_GO_"$numtar".gaf
+                               			        fi
+                               			        if [[ $aspect == "P" ]]
+                               			        then
+                                       			        break
+                               			 	elif [[ $aspect != "P" ]]
+                                       			then
+                                       			        echo -e "$uniprot\t$ensbtat\t$ensbtag\t$unilnc" >> noBP_"$numtar".tmp
+                                       			fi
+                               			done
+                       			fi
+				fi
+               		done
+       	done
+
+cat "$numtar"_nouni.tmp | sort | uniq > "$tissue"_targets"$numtar"_wo_uniprot_feelnc.txt
+
+cat noGO_"$numtar".tmp | sort | uniq > "$tissue"_targets"$numtar"_noGO_feelnc.txt
+
+cat noBP_"$numtar".tmp | sort | uniq > "$tissue"_targets"$numtar"_noBP_feelnc.txt
+
+rm *.tmp
+done
+
+#COMBINE INDIVIDUAL TISSUE GAFS INTO A SINGLE GAF--NEED TO MAKE A LIST OF BTO THEN ENTER THEM | SEPARATED WITH ONLY UNIQ
+
+cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/GO/
+#REMOVE OLD FILE AND START FRESH WITH EACH RUN
+rm feelnc_GO_"$numtar".gaf
+touch feelnc_GO_"$numtar".gaf
+
+
+#CAT ALL THE INDIVIDUAL GAFS TOGETHER 
+cat */*_feelnc_GO_"$numtar".gaf > feelnc_GO_"$numtar".tmp
+sort -k2 -d feelnc_GO_"$numtar".tmp > feelncsort_"$numtar".tmp
+
+#MAKE AN ARRAY OF ALL UNILNC IDS
+lncarray=($(awk '{print $2}' feelncsort_"$numtar".tmp | sort | uniq ))
+for u in "${lncarray[@]}"
+do
+	grep $u feelncsort_"$numtar".tmp > "$u".tmp
+	
+	awk -F '\t' '{print $16}' "$u".tmp |sort|uniq  > "$u"_bto.tmp
+	sed -i -z 's/\n/|/g' "$u"_bto.tmp
+	
+	cat "$u".tmp | sort -u -k 4,4 > "$u"_2.tmp
+
+	bto=$(cat "$u"_bto.tmp)
+	sed 's/\t/%/g' "$u"_2.tmp | while IFS='%' read a b c d e f g h i j k l m n o p q
+	do
+		echo -e "$a\t$b\t$c\t$d\t$e\t$f\t$g\t$h\t$i\t$j\t$k\t$l\t$m\t$n\t$o\t$bto\t$q" >> feelnc_GO_"$numtar".gaf
+	done
+
+	rm "$u".tmp  "$u"_2.tmp "$u"_bto.tmp
+
+done
+
+rm *.tmp
+done

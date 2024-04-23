@@ -1,0 +1,23 @@
+#!/bin/bash
+#SBATCH --job-name=idmapping
+#SBATCH --ntasks=1
+#SBATCH --mem=5gb
+#SBATCH --time=12:00:00
+#SBATCH --partition=standard
+#SBATCH --account=shaneburgess
+
+#THIS SCRIPT TAKES THE UNILNC IDS FROM GFFCOMPARE AND MAKES A TABULAR MAPPING FILE FOR ALL TISSUES TO CORRELATE NEW ID WITH QUANT VALUES IN TPM
+
+#################################################################################################################################################
+#MAKE MAPPING_QUANT FILE OUTPUT
+cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/rsem/
+rm expression_quant_mapping.txt
+touch expression_quant_mapping.txt
+
+#ADD HEADER UNILNC ISTHMUS (TPM) MAGNUM (TPM) SHELLGLAND (TPM)
+echo -e "lncRNA\tIsthmus (TPM)\tMagnum (TPM)\tShell gland (TPM)" > expression_quant_mapping.txt
+
+paste isthmus/RSEM.genes.results magnum/RSEM.genes.results shellgland/RSEM.genes.results > exp.tmp
+
+cut -f1,6,13,20 exp.tmp > expression_quant_mapping.txt
+rm *.tmp

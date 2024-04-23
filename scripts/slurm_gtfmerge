@@ -1,0 +1,38 @@
+#!/bin/bash
+#SBATCH --job-name=gffcomp
+#SBATCH --ntasks=1
+#SBATCH --mem=100gb
+#SBATCH --time=24:00:00
+#SBATCH --partition=standard
+#SBATCH --account=shaneburgess
+
+#THIS IS A SCRIPT TO (HOPEFULLY) MERGE THE LNCRNA GTF FILES FROM FEELNC TO GET UNIFIED IDENTIFIERS ACROSS TISSUES
+
+
+tissuearray=(isthmus magnum shellgland)
+patharray=()
+
+#cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/tools/
+
+#singularity pull docker://quay.io/biocontainers/gffcompare:0.11.2--h7d875b9_2
+
+
+
+for tissue in "${tissuearray[@]}"
+       do
+	patharray+=(/xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/$tissue/feelnc_codpot_out/"$tissue"_candidate_lncRNA.gtf.lncRNA.gtf)
+done
+	cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/
+	singularity run \
+	-B /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/:/work-dir  \
+        /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/tools/gffcompare_0.12.6.sif \
+        gffcompare \
+	-p UNILNC \
+	-o unified_lncrna_ids \
+	--strict-match \
+	--debug \
+	"${patharray[@]}" 
+
+echo  "${patharray[*]}"
+
+

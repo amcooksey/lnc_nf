@@ -1,0 +1,48 @@
+#!/bin/bash
+#SBATCH --job-name=gtf2fa
+#SBATCH --ntasks=1
+#SBATCH --mem=100gb
+#SBATCH --time=20:00:00
+#SBATCH --partition=standard
+#SBATCH --account=shaneburgess
+
+tissuearray=(isthmus magnum shellgland)
+
+#THIS MAKES A FASTA OF THE LNCS WITHOUT TARGETS FROM FEELNC
+for tissue in "${tissuearray[@]}"
+       do
+	cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/
+	singularity run \
+        -B /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/:/work-dir  \
+        /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/tools/gffread_0.11.7--h8b12597_0.sif \
+        gffread -w $tissue/"$tissue"_is_best_1.fa \
+	-g /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/ref_galgal6/galgal6_nowhitespace.fa \
+	$tissue/"$tissue"_is_best_1.gtf
+done
+
+
+#THIS MAKES A FASTA OF THE MRNAS FROM FEELNC (NOT LNCS)
+for tissue in "${tissuearray[@]}"
+       do
+        cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/"$tissue"/feelnc_codpot_out
+        singularity run \
+        -B /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/:/work-dir  \
+        /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/tools/gffread_0.11.7--h8b12597_0.sif \
+        gffread -w "$tissue"_candidate_lncRNA.gtf.mRNA.fa \
+        -g /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/ref_galgal6/galgal6_nowhitespace.fa \
+        "$tissue"_candidate_lncRNA.gtf.mRNA.gtf
+done
+
+
+#THIS MAKES A FASTA OF THE LNCRNAS FROM FEELNC
+for tissue in "${tissuearray[@]}"
+       do
+        cd /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/FEELnc/"$tissue"/feelnc_codpot_out
+        singularity run \
+        -B /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/mRNA/drechsler_chicken/:/work-dir  \
+        /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/tools/gffread_0.11.7--h8b12597_0.sif \
+        gffread -w "$tissue"_candidate_lncRNA.gtf.lncRNA.fa \
+        -g /xdisk/shaneburgess/amcooksey/usda_ncrna_annotation/ref_galgal6/galgal6_nowhitespace.fa \
+        "$tissue"_candidate_lncRNA.gtf.lncRNA.gtf
+done
+
