@@ -29,6 +29,9 @@ This fil define the Nextflow process (what comes out of and into each process) a
 --nextflow
 This is the installed Nextflow executable (could probably use a module going forward??).
 
+--nextflow.config
+Config file with slurm specs defined for each individual process rather than small, medium, large.
+
 --project
 This directory contains the input files (FASTQ and subsets made for testing). The 'tools' subdir contains the singularity images used in
 the pipeline.
